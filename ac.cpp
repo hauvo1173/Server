@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h>
 
 void error(const char *msg)
 {
@@ -17,60 +16,88 @@ void error(const char *msg)
 int main(int argc, char *argv[])
 {
 
-	
-
-	int sockfd,  portno, n;
-	struct sockaddr_in serv_addr;
-	struct hostent *server;
-	
-	char buffer[256];
-	if(argc < 3)
+	if(argc< 2)
 	{
-		fprintf(stderr, " usage %s hostname port \n", argv[0]);
-		exit(0);	
+		fprintf(stderr, "port no not provided. Program terminated \n");
+		exit(1);
 	}
 
-	portno= atoi(argv[2]);
+	int sockfd, newsockfd, portno, n;
+	char buffer[255];
+
+	struct sockaddr_in serv_addr, cli_addr;
+	socklen_t clilen;
+
 	sockfd= socket(AF_INET, SOCK_STREAM, 0);
-
-	if(sockfd< 0)
-		error("error opening socket");
-
-	server = gethostbyname(argv[1]);
-	if(server == NULL)
+	if(sockfd<0)
 	{
-		fprintf(stderr, "Error, no such host");
-		exit(0);
+		error("Error opening socket");
 	}
+
 	bzero((char*) &serv_addr, sizeof(serv_addr));
-	
+	portno= atoi(argv[1]);
+
 	serv_addr.sin_family= AF_INET;
-	bcopy((char *) server->h_addr, (char*) &serv_addr.sin_addr.s_addr, server-> h_length);
+	serv_addr.sin_addr.s_addr= INADDR_ANY;
 	serv_addr.sin_port= htons(portno);
 
-	if(connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))< 0)
-		error("Connection Failed");
-	while(1)
-	{
-		bzero(buffer, 255);
-		fgets(buffer, 255, stdin);
-		n= write(sockfd , buffer, strlen(buffer));
-		if(n< 0)
-			error("Error on writing");
-			
-		bzero(buffer, 255);
-		n= read(sockfd , buffer, strlen(buffer));
-		if(n< 0)
-			error("Error on writing.");
-		printf("server: %s\n", buffer);
-		int i= strncmp("bye", buffer, 3);
-		if(i ==0)
-			break;
-	}
-		
+	if(bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr))<0)
+		error("binding Failed.");
 
+	listen(sockfd,5);
+
+	clilen= sizeof(cli_addr);
+
+	newsockfd= accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+
+	if(newsockfd< 0)
+		error("Error on Accepted");
+
+	int num1, num2, ans , choice;
+
+S:	n= write(newsockfd,"Enter Number 1 :", strlen("Enter Number 1")); //ask for number
+	if(n< 0)
+		error("Error writing Socket");
+	read(newsockfd, &num1, sizeof(int));
+	printf("Client- Number 1 is: %d\n", num1);
+
+	n= write(newsockfd,"Enter Number 2 :", strlen("Enter Number 2")); //ask for number
+	if(n< 0)
+		error("Error writing Socket");
+	read(newsockfd, &num2, sizeof(int));
+	printf("Client- Number 1 is: %d\n", num2);
+
+	n= write(newsockfd,"Enter your choice : \n 1. addition \n2. Subtraction \n3.Multiplication \n4. division ", strlen("Enter your choice : \n 1. addition \n2. Subtraction \n3.Multiplication \n4. division")); //ask for number
+	if(n< 0)
+		error("Error writing Socket");
+	read(newsockfd, &choice, sizeof(int));
+	printf("Client- Number 1 is: %d\n", choice);
+
+	switch(choice)
+	{
+		case 1:
+			ans= num1 + num2;
+			break;
+		case 2:
+			ans= num1 - num2;
+			break;
+		case 3:
+			ans= num1 * num2;
+			break;
+		case 4:
+			ans= num1 / num2;
+			break;
+		case 5:
+			goto Q;
+			break;
+	}	
+
+	write(newsockfd, &ans, sizeof(int));
+	if(choice != 5)
+		goto S;
+
+Q:	close(newsockfd);
 	close(sockfd);
-	
 	return 0;
 
 }
